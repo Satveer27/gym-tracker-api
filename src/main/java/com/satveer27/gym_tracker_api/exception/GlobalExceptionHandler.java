@@ -1,19 +1,22 @@
 package com.satveer27.gym_tracker_api.exception;
 
 import com.satveer27.gym_tracker_api.dto.errors.ErrorResponseDto;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponseDto> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        log.warn("action=resource_not_found message={}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 ErrorResponseDto.of(404, "Not Found", ex.getMessage())
         );
@@ -21,6 +24,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ErrorResponseDto> handleDuplicateResourceException(DuplicateResourceException ex) {
+        log.warn("action=duplicate_resource message={}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 ErrorResponseDto.of(409, "Duplicate Resource", ex.getMessage())
         );
@@ -32,20 +36,17 @@ public class GlobalExceptionHandler {
         ex.getBindingResult().getFieldErrors().forEach((fieldError)->{
             fieldErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
         });
+        log.warn("action=validation_failed errors={}", fieldErrors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 ErrorResponseDto.withFieldErrors(fieldErrors, "One or more fields is invalid", "Validation Failed")
         );
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponseDto> handleInternalError(Exception e) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("Timestamp", LocalDateTime.now());
-        response.put("error", "Internal Error");
-        response.put("status", 500);
-        response.put("message", e.getMessage());
+    public ResponseEntity<ErrorResponseDto> handleInternalError(Exception ex) {
+        log.error("action=unexpected_error message={}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                ErrorResponseDto.of(500,  "Internal Error", e.getMessage())
+                ErrorResponseDto.of(500,  "Internal Error", ex.getMessage())
         );
     }
 }
