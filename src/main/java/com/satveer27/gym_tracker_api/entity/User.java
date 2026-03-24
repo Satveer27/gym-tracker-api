@@ -1,5 +1,6 @@
 package com.satveer27.gym_tracker_api.entity;
 
+import com.satveer27.gym_tracker_api.enums.Role;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,7 +17,7 @@ public class User {
     @Id
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private Long id;
 
     @Column(name = "username", nullable = false, unique = true, length = 50)
     private String username;
@@ -29,6 +30,10 @@ public class User {
 
     @Column(name="created_at")
     private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name="role")
+    private Role role;
 
     @PrePersist
     private void prePersist() {
