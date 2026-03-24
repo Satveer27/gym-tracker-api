@@ -28,12 +28,12 @@ public class User {
     @Column(name="password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name="created_at")
+    @Column(name="created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(name="role")
-    private Role role;
+    @Column(name="role", nullable = false)
+    private Role role = Role.USER;
 
     @PrePersist
     private void prePersist() {

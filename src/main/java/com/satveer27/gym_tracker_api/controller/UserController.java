@@ -25,7 +25,7 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/:id")
+    @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         log.info("action=getUserById username={}", id);
         UserResponse response = userService.getUserById(id);

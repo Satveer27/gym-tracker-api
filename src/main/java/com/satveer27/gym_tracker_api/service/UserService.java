@@ -23,11 +23,11 @@ public class UserService {
     public UserResponse register(UserRegisterRequest request) {
         log.debug("action=register_user username={}", request.getUsername());
 
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+        if (userRepository.existsByUsername(request.getUsername())) {
             throw new DuplicateResourceException("Username already exists");
         }
 
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+        if (userRepository.existsByEmail(request.getEmail())) {
             throw new DuplicateResourceException("Email already exists");
         }
 
@@ -46,6 +46,7 @@ public class UserService {
         log.debug("action=get_user_by_id id={}", id);
         Optional<User> user = userRepository.findById(id);
         if(user.isPresent()){
+            log.debug("action=get_user user_id={} status=found", id);
             return UserResponse.from(user.get());
         }else{
             throw new ResourceNotFoundException("User not found");
