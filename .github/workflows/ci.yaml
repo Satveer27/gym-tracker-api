@@ -1,8 +1,11 @@
+# For now only run pipeline when push on main or pull to main branch, not every commit as it can consume github
+# limit
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
 
 jobs:
   build:
