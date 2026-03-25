@@ -29,6 +29,6 @@ public class UserController {
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         log.info("action=getUserById username={}", id);
         UserResponse response = userService.getUserById(id);
-        return ResponseEntity.status(HttpStatus.FOUND).body(response);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 }
