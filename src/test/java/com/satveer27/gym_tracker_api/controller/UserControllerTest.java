@@ -53,13 +53,13 @@ public class UserControllerTest extends BaseIntegrationTest {
     void register_shouldReturn409_whenDuplicateUsername() throws Exception {
         UserRegisterRequest request = new UserRegisterRequest();
         request.setUsername("duplicate");
-        request.setEmail("first@email");
+        request.setEmail("first@email.com");
         request.setPassword("password123");
         mockMvc.perform(post("/api/v1/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
-        request.setEmail("second@email");
+        request.setEmail("second@email.com");
         mockMvc.perform(post("/api/v1/users/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -83,6 +83,54 @@ public class UserControllerTest extends BaseIntegrationTest {
     }
 
     @Test
+    void register_shouldReturn400_whenFieldsAreNull() throws Exception {
+        UserRegisterRequest request = new UserRegisterRequest();
+        request.setUsername(null);
+        request.setEmail(null);
+        request.setPassword(null);
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.username").exists())
+                .andExpect(jsonPath("$.fieldErrors.email").exists())
+                .andExpect(jsonPath("$.fieldErrors.password").exists());
+    }
+
+    @Test
+    void register_shouldReturn400_whenInvalidEmailStructure() throws Exception {
+        UserRegisterRequest request = new UserRegisterRequest();
+        request.setUsername("testuser");
+        request.setEmail("not-email");
+        request.setPassword("password123");
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.email").exists())
+                .andExpect(jsonPath("$.fieldErrors.username").doesNotExist())
+                .andExpect(jsonPath("$.fieldErrors.password").doesNotExist());
+    }
+
+    @Test
+    void register_shouldReturn400_whenInvalidSizeRequest() throws Exception {
+        UserRegisterRequest request = new UserRegisterRequest();
+        request.setUsername("ss");
+        request.setEmail("test@gmail.com");
+        request.setPassword("passwo");
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.email").doesNotExist())
+                .andExpect(jsonPath("$.fieldErrors.username").exists())
+                .andExpect(jsonPath("$.fieldErrors.password").exists());
+    }
+
+    @Test
     void register_shouldReturn409_whenDuplicateEmail() throws Exception {
         UserRegisterRequest request = new UserRegisterRequest();
         request.setUsername("user1");
@@ -99,6 +147,42 @@ public class UserControllerTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void register_shouldStoreHashedPassword() throws Exception {
+        UserRegisterRequest request = new UserRegisterRequest();
+        request.setUsername("testuser");
+        request.setEmail("test@email.com");
+        request.setPassword("password123");
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        User savedUser = userRepository.findByUsername("testuser").orElseThrow();
+
+        // password in database should NOT be the plain text
+        assertNotEquals("password123", savedUser.getPasswordHash());
+
+        // BCrypt hashes always start with $2a$
+        assertTrue(savedUser.getPasswordHash().startsWith("$2a$"));
+    }
+
+    @Test
+    void register_shouldNotReturnPasswordInResponse() throws Exception {
+        UserRegisterRequest request = new UserRegisterRequest();
+        request.setUsername("testuser");
+        request.setEmail("test@email.com");
+        request.setPassword("password123");
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.password").doesNotExist());
     }
 
     @Test
@@ -128,40 +212,19 @@ public class UserControllerTest extends BaseIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
-    @Test
-    void register_shouldNotReturnPasswordInResponse() throws Exception {
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
 
-        mockMvc.perform(post("/api/v1/users/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.passwordHash").doesNotExist())
-                .andExpect(jsonPath("$.password").doesNotExist());
+    @Test
+    void getUser_shouldReturn400_WhenInvalidUrl() throws Exception {
+        mockMvc.perform(get("/api/v1/users/abc"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void register_shouldStoreHashedPassword() throws Exception {
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
-
-        mockMvc.perform(post("/api/v1/users/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated());
-
-        User savedUser = userRepository.findByUsername("testuser").orElseThrow();
-
-        // password in database should NOT be the plain text
-        assertNotEquals("password123", savedUser.getPasswordHash());
-
-        // BCrypt hashes always start with $2a$
-        assertTrue(savedUser.getPasswordHash().startsWith("$2a$"));
+    void return404_whenUserAccessUnknownPage() throws Exception {
+        mockMvc.perform(get("/api/v1/users"))
+                .andExpect(status().isNotFound());
     }
+
+
 
 }
