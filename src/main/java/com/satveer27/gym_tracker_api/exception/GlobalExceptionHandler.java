@@ -4,6 +4,7 @@ import com.satveer27.gym_tracker_api.dto.errors.ErrorResponseDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -39,6 +40,23 @@ public class GlobalExceptionHandler {
                 ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Type mismatch", ex.getName())
         );
     }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDto> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        log.warn("action=message_not_readable message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Message not readable", ex.getMessage())
+        );
+    }
+
+    @ExceptionHandler(UnauthorizedActionException.class)
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedActionException(UnauthorizedActionException ex) {
+        log.warn("action=unauthorized_action message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ErrorResponseDto.of(HttpStatus.FORBIDDEN.value(), "Unauthorized", ex.getMessage())
+        );
+    }
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {

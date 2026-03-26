@@ -1,5 +1,6 @@
 package com.satveer27.gym_tracker_api.controller;
 
+import com.satveer27.gym_tracker_api.dto.users.UpdatedUserRequest;
 import com.satveer27.gym_tracker_api.dto.users.UserRegisterRequest;
 import com.satveer27.gym_tracker_api.dto.users.UserResponse;
 import com.satveer27.gym_tracker_api.service.UserService;
@@ -27,8 +28,17 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
-        log.info("action=getUserById username={}", id);
+        log.info("action=getUserById id={}", id);
         UserResponse response = userService.getUserById(id);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
+    @PatchMapping("/update/{id}")
+    public ResponseEntity<UserResponse> updateUserById(@PathVariable Long id, @Valid @RequestBody UpdatedUserRequest request){
+        log.info("action=updateUserById id={}", id);
+        UserResponse response = userService.updateUserById(id, request);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+
 }

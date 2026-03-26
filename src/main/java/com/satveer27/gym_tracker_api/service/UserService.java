@@ -1,10 +1,13 @@
 package com.satveer27.gym_tracker_api.service;
 
+import com.satveer27.gym_tracker_api.dto.users.UpdatedUserRequest;
 import com.satveer27.gym_tracker_api.dto.users.UserRegisterRequest;
 import com.satveer27.gym_tracker_api.dto.users.UserResponse;
 import com.satveer27.gym_tracker_api.entity.User;
+import com.satveer27.gym_tracker_api.enums.Role;
 import com.satveer27.gym_tracker_api.exception.DuplicateResourceException;
 import com.satveer27.gym_tracker_api.exception.ResourceNotFoundException;
+import com.satveer27.gym_tracker_api.exception.UnauthorizedActionException;
 import com.satveer27.gym_tracker_api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +51,41 @@ public class UserService {
         if(user.isPresent()){
             log.debug("action=get_user user_id={} status=found", id);
             return UserResponse.from(user.get());
+        }else{
+            throw new ResourceNotFoundException("User not found");
+        }
+    }
+
+    public UserResponse updateUserById(Long id, UpdatedUserRequest request){
+        log.debug("action=update_user_by_id id={}", id);
+        Optional<User> user = userRepository.findById(id);
+        if(user.isPresent()){
+            log.debug("action=update_user user_id={} status=found", id);
+            if(request.getUsername() != null){
+                if(userRepository.existsByUsername(request.getUsername()) && !user.get().getUsername().equals(request.getUsername())){
+                    throw new DuplicateResourceException("Username already exists");
+                }
+                user.get().setUsername(request.getUsername());
+            }
+
+            if(request.getEmail() != null){
+                if(userRepository.existsByEmail(request.getEmail())  && !user.get().getEmail().equals(request.getEmail())){
+                    throw new DuplicateResourceException("Email already exists");
+                }
+                user.get().setEmail(request.getEmail());
+            }
+
+            if(request.getRole() != null){
+                if(request.getRole() == Role.ADMIN){
+                    throw new UnauthorizedActionException("unauthorized action");
+                }
+                user.get().setRole(request.getRole());
+            }
+
+            userRepository.save(user.get());
+            log.info("action=update_user user_id={} username={} status=success", id,  user.get().getUsername());
+            return UserResponse.from(user.get());
+
         }else{
             throw new ResourceNotFoundException("User not found");
         }
