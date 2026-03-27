@@ -4,6 +4,7 @@ import com.satveer27.gym_tracker_api.dto.errors.ErrorResponseDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,10 +36,37 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponseDto> handleTypeMismatchException(MethodArgumentTypeMismatchException ex) {
         log.warn("action=type_mismatch message={}", ex.getMessage());
+        String message = String.format("Invalid value for parameter '%s'", ex.getName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Type mismatch", ex.getName())
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Type mismatch", message)
         );
     }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponseDto> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        log.warn("action=message_not_readable message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Message not readable", "Request body is missing or malformed")
+        );
+    }
+
+    @ExceptionHandler(UnauthorizedActionException.class)
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedActionException(UnauthorizedActionException ex) {
+        log.warn("action=unauthorized_action message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ErrorResponseDto.of(HttpStatus.FORBIDDEN.value(), "Unauthorized", ex.getMessage())
+        );
+    }
+
+    @ExceptionHandler(PasswordMismatchException.class)
+    public ResponseEntity<ErrorResponseDto> handlePasswordMismatch(PasswordMismatchException ex) {
+        log.warn("action=password_mismatch message={}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Password mismatch", ex.getMessage())
+        );
+    }
+
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
@@ -60,11 +88,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidCredentialsException(InvalidCredentialsException ex) {
+        log.warn("action=invalid_credentials message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ErrorResponseDto.of(HttpStatus.UNAUTHORIZED.value(), "Unauthorized", ex.getMessage())
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleInternalError(Exception ex) {
         log.error("action=unexpected_error message={}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                ErrorResponseDto.of(500,  "Internal Error", ex.getMessage())
+                ErrorResponseDto.of(500,  "Internal Error", "An unexpected error occurred")
         );
     }
 }
