@@ -36,8 +36,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponseDto> handleTypeMismatchException(MethodArgumentTypeMismatchException ex) {
         log.warn("action=type_mismatch message={}", ex.getMessage());
+        String message = String.format("Invalid value for parameter '%s'", ex.getName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Type mismatch", ex.getName())
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Type mismatch", message)
         );
     }
 
@@ -45,7 +46,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
         log.warn("action=message_not_readable message={}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Message not readable", ex.getMessage())
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Message not readable", "Request body is missing or malformed")
         );
     }
 
@@ -54,6 +55,15 @@ public class GlobalExceptionHandler {
         log.warn("action=unauthorized_action message={}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 ErrorResponseDto.of(HttpStatus.FORBIDDEN.value(), "Unauthorized", ex.getMessage())
+        );
+    }
+
+    @ExceptionHandler(PasswordMismatchException.class)
+    public ResponseEntity<ErrorResponseDto> handlePasswordMismatch(PasswordMismatchException ex) {
+        log.warn("action=password_mismatch message={}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                ErrorResponseDto.of(HttpStatus.BAD_REQUEST.value(), "Password mismatch", ex.getMessage())
         );
     }
 
@@ -78,11 +88,19 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponseDto> handleInvalidCredentialsException(InvalidCredentialsException ex) {
+        log.warn("action=invalid_credentials message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ErrorResponseDto.of(HttpStatus.UNAUTHORIZED.value(), "Unauthorized", ex.getMessage())
+        );
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleInternalError(Exception ex) {
         log.error("action=unexpected_error message={}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                ErrorResponseDto.of(500,  "Internal Error", ex.getMessage())
+                ErrorResponseDto.of(500,  "Internal Error", "An unexpected error occurred")
         );
     }
 }

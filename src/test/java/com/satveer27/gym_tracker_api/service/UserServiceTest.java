@@ -1,21 +1,23 @@
 package com.satveer27.gym_tracker_api.service;
 
-import com.satveer27.gym_tracker_api.dto.users.UpdatedUserRequest;
-import com.satveer27.gym_tracker_api.dto.users.UserRegisterRequest;
-import com.satveer27.gym_tracker_api.dto.users.UserResponse;
+import com.satveer27.gym_tracker_api.dto.users.*;
 import com.satveer27.gym_tracker_api.entity.User;
 import com.satveer27.gym_tracker_api.enums.Role;
-import com.satveer27.gym_tracker_api.exception.DuplicateResourceException;
-import com.satveer27.gym_tracker_api.exception.ResourceNotFoundException;
-import com.satveer27.gym_tracker_api.exception.UnauthorizedActionException;
+import com.satveer27.gym_tracker_api.exception.*;
 import com.satveer27.gym_tracker_api.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,8 +41,8 @@ public class UserServiceTest {
         request.setEmail("test@email.com");
         request.setPassword("password123");
 
-        when(userRepository.existsByUsername("testuser")).thenReturn(false);
-        when(userRepository.existsByEmail("test@email.com")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(false);
 
         when(bCryptPasswordEncoder.encode("password123")).thenReturn("hashedpassword");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
@@ -64,7 +66,7 @@ public class UserServiceTest {
         request.setUsername("testuser");
         request.setEmail("test@email.com");
         request.setPassword("password123");
-        when(userRepository.existsByUsername("testuser")).thenReturn(true);
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(true);
         assertThrows(DuplicateResourceException.class, ()->userService.register(request));
         verify(userRepository, never()).save(any());
     }
@@ -75,8 +77,8 @@ public class UserServiceTest {
         request.setUsername("testuser");
         request.setEmail("test@email.com");
         request.setPassword("password123");
-        when(userRepository.existsByUsername("testuser")).thenReturn(false);
-        when(userRepository.existsByEmail("test@email.com")).thenReturn(true);
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(true);
         assertThrows(DuplicateResourceException.class, ()->userService.register(request));
         verify(userRepository, never()).save(any());
     }
@@ -88,8 +90,8 @@ public class UserServiceTest {
         request.setEmail("test@email.com");
         request.setPassword("password123");
 
-        when(userRepository.existsByUsername("testuser")).thenReturn(false);
-        when(userRepository.existsByEmail("test@email.com")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(false);
         when(bCryptPasswordEncoder.encode("password123")).thenReturn("hashedpassword");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -111,8 +113,8 @@ public class UserServiceTest {
         request.setEmail("test@email.com");
         request.setPassword("password123");
 
-        when(userRepository.existsByUsername("testuser")).thenReturn(false);
-        when(userRepository.existsByEmail("test@email.com")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(false);
         when(bCryptPasswordEncoder.encode("password123")).thenReturn("hashedpassword");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -160,8 +162,8 @@ public class UserServiceTest {
         user.setPasswordHash("password123");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.existsByUsername("testuser1")).thenReturn(false);
-        when(userRepository.existsByEmail("test@email1.com")).thenReturn(false);
+        when(userRepository.existsByUsernameIgnoreCase("testuser1")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("test@email1.com")).thenReturn(false);
 
         when(userRepository.save(any(User.class))).thenReturn(user);
 
@@ -191,7 +193,8 @@ public class UserServiceTest {
 
         User user = new User();
         user.setId(1L);
-        when(userRepository.existsByUsername("testuser")).thenReturn(true);
+        user.setUsername("testuser1");
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(true);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
         assertThrows(DuplicateResourceException.class,
@@ -207,9 +210,10 @@ public class UserServiceTest {
         User user = new User();
         user.setId(1L);
         user.setUsername("testuser");
+        user.setEmail("testuser1@gmail.com");
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.existsByUsername("testuser")).thenReturn(false);
-        when(userRepository.existsByEmail("testuser@gmail.com")).thenReturn(true);
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("testuser@gmail.com")).thenReturn(true);
         assertThrows(DuplicateResourceException.class,
                 () -> userService.updateUserById(1L, request));
     }
@@ -281,7 +285,7 @@ public class UserServiceTest {
         user.setRole(Role.USER);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.existsByEmail("testuser1@gmail.com")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("testuser1@gmail.com")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenReturn(user);
 
         UserResponse response = userService.updateUserById(1L, request);
@@ -291,5 +295,130 @@ public class UserServiceTest {
         assertEquals(Role.USER, response.getRole());
     }
 
+    @Test
+    void updatePassword_success() {
+        User user = new User();
+        user.setId(1L);
+        when(bCryptPasswordEncoder.encode("oldPassword")).thenReturn("hashedOldPassword");
+        user.setPasswordHash(bCryptPasswordEncoder.encode("oldPassword"));
 
+        UpdatePasswordRequest request = new UpdatePasswordRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword");
+        request.setConfirmNewPassword("newPassword");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(bCryptPasswordEncoder.matches("oldPassword", user.getPasswordHash())).thenReturn(true);
+        when(bCryptPasswordEncoder.encode("newPassword")).thenReturn("encodedNewPassword");
+        when(userRepository.save(any(User.class))).thenReturn(user);
+
+        userService.updateUserPassword(1L, request);
+
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    void updatePassword_throwsWhenPasswordsMismatch() {
+        User user = new User();
+        user.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        UpdatePasswordRequest request = new UpdatePasswordRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword");
+        request.setConfirmNewPassword("differentPassword");
+
+        assertThrows(PasswordMismatchException.class,
+                () -> userService.updateUserPassword(1L, request));
+    }
+
+    @Test
+    void updatePassword_throwsWhenOldPasswordWrong() {
+        User user = new User();
+        user.setId(1L);
+        user.setPasswordHash("encodedOldPassword");
+
+        UpdatePasswordRequest request = new UpdatePasswordRequest();
+        request.setOldPassword("wrongPassword");
+        request.setNewPassword("newPassword");
+        request.setConfirmNewPassword("newPassword");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(bCryptPasswordEncoder.matches("wrongPassword", "encodedOldPassword")).thenReturn(false);
+
+        assertThrows(InvalidCredentialsException.class,
+                () -> userService.updateUserPassword(1L, request));
+    }
+
+    @Test
+    void updatePassword_throwsWhenUserNotFound() {
+        UpdatePasswordRequest request = new UpdatePasswordRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword");
+        request.setConfirmNewPassword("newPassword");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> userService.updateUserPassword(1L, request));
+    }
+
+    @Test
+    void deleteUser_success() {
+        when(userRepository.existsById(1L)).thenReturn(true);
+
+        userService.deleteUserById(1L);
+
+        verify(userRepository).deleteById(1L);
+    }
+
+    @Test
+    void deleteUser_throwsWhenUserNotFound() {
+        when(userRepository.existsById(1L)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> userService.deleteUserById(1L));
+    }
+
+    @Test
+    void getAllUsers_returnsPagedResults() {
+        User user1 = new User();
+        user1.setId(1L);
+        user1.setUsername("testuser1");
+        user1.setEmail("test1@email.com");
+        user1.setRole(Role.USER);
+
+        User user2 = new User();
+        user2.setId(2L);
+        user2.setUsername("testuser2");
+        user2.setEmail("test2@email.com");
+        user2.setRole(Role.TRAINER);
+
+        Page<User> page = new PageImpl<>(List.of(user1, user2), PageRequest.of(0, 30), 2);
+
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+
+        GetAllUsersResponse response = userService.getAllUser(
+                PageRequest.of(0, 30), null, null, null, null, null);
+
+        assertEquals(2, response.getUsers().size());
+        assertEquals(0, response.getCurrentPage());
+        assertEquals(1, response.getTotalPages());
+        assertEquals(2, response.getTotalItems());
+        assertFalse(response.isHasNext());
+        assertFalse(response.isHasPrevious());
+    }
+
+    @Test
+    void getAllUsers_returnsEmptyPage() {
+        Page<User> page = new PageImpl<>(List.of(), PageRequest.of(0, 30), 0);
+
+        when(userRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+
+        GetAllUsersResponse response = userService.getAllUser(
+                PageRequest.of(0, 30), null, null, null, null, null);
+
+        assertEquals(0, response.getUsers().size());
+        assertEquals(0, response.getTotalItems());
+    }
 }

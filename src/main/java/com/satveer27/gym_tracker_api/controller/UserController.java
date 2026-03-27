@@ -1,16 +1,20 @@
 package com.satveer27.gym_tracker_api.controller;
 
-import com.satveer27.gym_tracker_api.dto.users.UpdatedUserRequest;
-import com.satveer27.gym_tracker_api.dto.users.UserRegisterRequest;
-import com.satveer27.gym_tracker_api.dto.users.UserResponse;
+import com.satveer27.gym_tracker_api.dto.users.*;
 import com.satveer27.gym_tracker_api.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @Slf4j
 @Controller
@@ -40,5 +44,30 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    @PatchMapping("/updatedPassword/{id}")
+    public ResponseEntity<Void> updatedPasswordById(@PathVariable Long id, @Valid @RequestBody UpdatePasswordRequest request) {
+        log.info("action=updatedPasswordById id={}", id);
+        userService.updateUserPassword(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<Void> deleteUserById(@PathVariable Long id){
+        log.info("action=deleteUserById id={}", id);
+        userService.deleteUserById(id);
+        return  ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/allUsers")
+    public ResponseEntity<GetAllUsersResponse> getAllUsers(
+            @PageableDefault(page = 0, size=30, sort="id", direction = Sort.Direction.ASC) Pageable pageable,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end){
+        log.info("action=getAllUsers");
+        return ResponseEntity.status(HttpStatus.OK).body(userService.getAllUser(pageable, role, username, email, start, end));
+    }
 
 }

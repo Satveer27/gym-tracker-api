@@ -2,6 +2,7 @@ package com.satveer27.gym_tracker_api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.satveer27.gym_tracker_api.BaseIntegrationTest;
+import com.satveer27.gym_tracker_api.dto.users.UpdatePasswordRequest;
 import com.satveer27.gym_tracker_api.dto.users.UpdatedUserRequest;
 import com.satveer27.gym_tracker_api.dto.users.UserRegisterRequest;
 import com.satveer27.gym_tracker_api.entity.User;
@@ -162,7 +163,7 @@ public class UserControllerTest extends BaseIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        User savedUser = userRepository.findByUsername("testuser").orElseThrow();
+        User savedUser = userRepository.findByUsernameIgnoreCase("testuser").orElseThrow();
 
 
         assertNotEquals("password123", savedUser.getPasswordHash());
@@ -345,5 +346,131 @@ public class UserControllerTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.fieldErrors.role").doesNotExist());
     }
 
+    @Test
+    void return204_whenUserUpdatesPassword() throws Exception {
+        UserRegisterRequest user = new UserRegisterRequest();
+        user.setUsername("testuser");
+        user.setEmail("testuser@gmail.com");
+        user.setPassword("password123");
 
+        String response = mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long id = objectMapper.readTree(response).get("id").asLong();
+
+        UpdatePasswordRequest request = new UpdatePasswordRequest();
+        request.setOldPassword("password123");
+        request.setNewPassword("newPassword123");
+        request.setConfirmNewPassword("newPassword123");
+
+        mockMvc.perform(patch("/api/v1/users/updatedPassword/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void return204_whenUserDeleted() throws Exception {
+        UserRegisterRequest user = new UserRegisterRequest();
+        user.setUsername("testuser");
+        user.setEmail("testuser@gmail.com");
+        user.setPassword("password123");
+
+        String response = mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long id = objectMapper.readTree(response).get("id").asLong();
+
+        mockMvc.perform(delete("/api/v1/users/delete/" + id))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/users/" + id))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void return200_whenGetAllUsers() throws Exception {
+        UserRegisterRequest user1 = new UserRegisterRequest();
+        user1.setUsername("testuser1");
+        user1.setEmail("testuser1@gmail.com");
+        user1.setPassword("password123");
+
+        UserRegisterRequest user2 = new UserRegisterRequest();
+        user2.setUsername("testuser2");
+        user2.setEmail("testuser2@gmail.com");
+        user2.setPassword("password123");
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user1)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user2)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/users/allUsers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.users.length()").value(2))
+                .andExpect(jsonPath("$.currentPage").value(0))
+                .andExpect(jsonPath("$.totalItems").value(2))
+                .andExpect(jsonPath("$.hasNext").value(false))
+                .andExpect(jsonPath("$.hasPrevious").value(false));
+    }
+
+    @Test
+    void return200_whenGetAllUsers_withRoleFilter() throws Exception {
+        UserRegisterRequest user1 = new UserRegisterRequest();
+        user1.setUsername("testuser1");
+        user1.setEmail("testuser1@gmail.com");
+        user1.setPassword("password123");
+
+        UserRegisterRequest user2 = new UserRegisterRequest();
+        user2.setUsername("testuser2");
+        user2.setEmail("testuser2@gmail.com");
+        user2.setPassword("password123");
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user1)))
+                .andExpect(status().isCreated());
+
+        String response = mockMvc.perform(post("/api/v1/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(user2)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long id = objectMapper.readTree(response).get("id").asLong();
+
+        UpdatedUserRequest updateRequest = new UpdatedUserRequest();
+        updateRequest.setRole(Role.TRAINER);
+
+        mockMvc.perform(patch("/api/v1/users/update/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/allUsers")
+                        .param("role", "TRAINER"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.users.length()").value(1))
+                .andExpect(jsonPath("$.users[0].role").value("TRAINER"))
+                .andExpect(jsonPath("$.totalItems").value(1));
+    }
+
+    @Test
+    void return200_whenGetAllUsers_emptyResult() throws Exception {
+        mockMvc.perform(get("/api/v1/users/allUsers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.users.length()").value(0))
+                .andExpect(jsonPath("$.totalItems").value(0));
+    }
 }
