@@ -1,7 +1,10 @@
 package com.satveer27.gym_tracker_api.controller;
 
 import com.satveer27.gym_tracker_api.dto.users.*;
+import com.satveer27.gym_tracker_api.exception.UnauthorizedActionException;
 import com.satveer27.gym_tracker_api.service.UserService;
+import com.satveer27.gym_tracker_api.utils.CookieCreatorHelper;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,54 +14,85 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 
 @Slf4j
-@Controller
+@RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
 
-    @PostMapping("/register")
-    public ResponseEntity<UserResponse> registerUser(@Valid @RequestBody UserRegisterRequest request) {
-        log.info("action=register_request username={}", request.getUsername());
-        UserResponse response = userService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    @GetMapping("/me")
+    @PreAuthorize("hasAnyAuthority('USER', 'COACH', 'ADMIN')")
+    public ResponseEntity<UserResponse> getMe(){
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserResponse response = userService.getUserById(userId);
+        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{id}")
+
+    @GetMapping("/admin/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         log.info("action=getUserById id={}", id);
         UserResponse response = userService.getUserById(id);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
-    @PatchMapping("/update/{id}")
-    public ResponseEntity<UserResponse> updateUserById(@PathVariable Long id, @Valid @RequestBody UpdatedUserRequest request){
-        log.info("action=updateUserById id={}", id);
-        UserResponse response = userService.updateUserById(id, request);
+
+    @PatchMapping("/admin/update/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<UserResponse> updateUserByIdAdmin(@PathVariable Long id, @Valid @RequestBody UpdateUserRequestAdmin request){
+        log.info("action=updateUserByIdAdmin id={}", id);
+        UserResponse response = userService.updateUserByIdAdmin(id, request);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
-    @PatchMapping("/updatedPassword/{id}")
-    public ResponseEntity<Void> updatedPasswordById(@PathVariable Long id, @Valid @RequestBody UpdatePasswordRequest request) {
-        log.info("action=updatedPasswordById id={}", id);
-        userService.updateUserPassword(id, request);
+    @PatchMapping("/me/update")
+    public ResponseEntity<UserResponse> updateUserByMe(@Valid @RequestBody UpdatedUserRequest request){
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        log.info("action=updateUserById userId={}", userId);
+        UserResponse response = userService.updateUserById(userId, request);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PatchMapping("/updatedPassword")
+    public ResponseEntity<Void> updatedPasswordById(@Valid @RequestBody UpdatePasswordRequest request, HttpServletResponse response) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        log.info("action=updatedPasswordById id={}", userId);
+        userService.updateUserPassword(userId, request);
+        CookieCreatorHelper.clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteUserById(@PathVariable Long id){
-        log.info("action=deleteUserById id={}", id);
+    @DeleteMapping("/admin/delete/{id}")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
+    public ResponseEntity<Void> deleteUserByIdAdmin(@PathVariable Long id){
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if(userId.equals(id)){
+            throw new UnauthorizedActionException("Cannot delete your own account");
+        }
+        log.info("action=deleteUserByIdAdmin id={}", id);
         userService.deleteUserById(id);
-        return  ResponseEntity.noContent().build();
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/delete/me")
+    public ResponseEntity<Void> deleteUserById(HttpServletResponse response){
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        log.info("action=deleteUserById id={}", userId);
+        userService.deleteUserById(userId);
+        CookieCreatorHelper.clearAuthCookies(response);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/allUsers")
+    @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<GetAllUsersResponse> getAllUsers(
             @PageableDefault(page = 0, size=30, sort="id", direction = Sort.Direction.ASC) Pageable pageable,
             @RequestParam(required = false) String username,

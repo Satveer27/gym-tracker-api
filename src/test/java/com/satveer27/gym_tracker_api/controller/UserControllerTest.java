@@ -306,7 +306,6 @@ public class UserControllerTest extends BaseIntegrationTest {
         Long id = objectMapper.readTree(response).get("id").asLong();
         UpdatedUserRequest request = new UpdatedUserRequest();
         request.setUsername("");
-        request.setEmail("");
 
         mockMvc.perform(patch("/api/v1/users/update/" + id)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -334,7 +333,6 @@ public class UserControllerTest extends BaseIntegrationTest {
 
         Long id = objectMapper.readTree(response).get("id").asLong();
         UpdatedUserRequest request = new UpdatedUserRequest();
-        request.setEmail("dasda");
         request.setUsername("t");
 
         mockMvc.perform(patch("/api/v1/users/update/" + id)

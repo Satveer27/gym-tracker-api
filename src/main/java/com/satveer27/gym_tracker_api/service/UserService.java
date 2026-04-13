@@ -3,93 +3,103 @@ package com.satveer27.gym_tracker_api.service;
 import com.satveer27.gym_tracker_api.dto.users.*;
 import com.satveer27.gym_tracker_api.entity.User;
 import com.satveer27.gym_tracker_api.enums.Role;
+import com.satveer27.gym_tracker_api.enums.TokenType;
 import com.satveer27.gym_tracker_api.exception.*;
+import com.satveer27.gym_tracker_api.repository.RefreshTokenRepository;
 import com.satveer27.gym_tracker_api.repository.UserRepository;
+import com.satveer27.gym_tracker_api.repository.VerificationTokenRepository;
 import com.satveer27.gym_tracker_api.specification.UserSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder bCryptPasswordEncoder;
-
-    public UserResponse register(UserRegisterRequest request) {
-        log.debug("action=register_user username={}", request.getUsername());
-
-        if (userRepository.existsByUsernameIgnoreCase(request.getUsername())) {
-            throw new DuplicateResourceException("Username already exists");
-        }
-
-        if (userRepository.existsByEmailIgnoreCase(request.getEmail())) {
-            throw new DuplicateResourceException("Email already exists");
-        }
-
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail().toLowerCase());
-        String encodedPassword = bCryptPasswordEncoder.encode(request.getPassword());
-        user.setPasswordHash(encodedPassword);
-        User saved = userRepository.save(user);
-        log.info("action=register_user user_id={} username={} status=success",
-                saved.getId(), saved.getUsername());
-        return UserResponse.from(saved);
-    }
+    private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final EmailVerificationService emailVerificationService;
+    private final VerificationTokenRepository verificationTokenRepository;
 
     public UserResponse getUserById(Long id){
         log.debug("action=get_user_by_id id={}", id);
-        Optional<User> user = userRepository.findById(id);
-        if(user.isPresent()){
-            log.debug("action=get_user user_id={} status=found", id);
-            return UserResponse.from(user.get());
-        }else{
-            throw new ResourceNotFoundException("User not found");
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        log.debug("action=get_user user_id={} status=found", id);
+        return UserResponse.from(user);
+    }
+
+    public UserResponse updateUserByIdAdmin(Long id, UpdateUserRequestAdmin request){
+        log.debug("action=update_user_by_id id={}", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        log.debug("action=update_user user_id={} status=found", id);
+        if(request.getUsername() != null){
+            if(userRepository.existsByUsernameIgnoreCase(request.getUsername()) && !user.getUsername().equals(request.getUsername())){
+                throw new DuplicateResourceException("Username already exists");
+            }
+            user.setUsername(request.getUsername().toLowerCase());
         }
+
+        boolean emailChanged = false;
+
+        if(request.getEmail() != null){
+            if(userRepository.existsByEmailIgnoreCase(request.getEmail())  && !user.getEmail().equals(request.getEmail().toLowerCase())){
+                throw new DuplicateResourceException("Email already exists");
+            }
+            if(!user.getEmail().equals(request.getEmail().toLowerCase())){
+                user.setEmail(request.getEmail().toLowerCase());
+                user.setEmailVerified(false);
+                emailChanged =  true;
+            }
+        }
+
+        if(request.getRole() != null){
+            user.setRole(request.getRole());
+        }
+
+        userRepository.save(user);
+        if(emailChanged){
+            refreshTokenRepository.deleteByUserId(user.getId());
+            emailVerificationService.sendEmail(request.getEmail().toLowerCase(), TokenType.EMAIL_VERIFICATION);
+        }
+        log.info("action=update_user_admin user_id={} username={} status=success", id,  user.getUsername());
+        return UserResponse.from(user);
     }
 
     public UserResponse updateUserById(Long id, UpdatedUserRequest request){
-        log.debug("action=update_user_by_id id={}", id);
-        Optional<User> user = userRepository.findById(id);
-        if(user.isPresent()){
-            log.debug("action=update_user user_id={} status=found", id);
-            if(request.getUsername() != null){
-                if(userRepository.existsByUsernameIgnoreCase(request.getUsername()) && !user.get().getUsername().equals(request.getUsername())){
-                    throw new DuplicateResourceException("Username already exists");
-                }
-                user.get().setUsername(request.getUsername());
+        log.debug("action=update_user_by_username userId={}", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        log.debug("action=update_user_by_username user_id={} status=found", user.getId());
+        if(request.getUsername() != null){
+            if(userRepository.existsByUsernameIgnoreCase(request.getUsername()) && !user.getUsername().equals(request.getUsername())){
+                throw new DuplicateResourceException("Username already exists");
             }
-
-            if(request.getEmail() != null){
-                if(userRepository.existsByEmailIgnoreCase(request.getEmail())  && !user.get().getEmail().equals(request.getEmail().toLowerCase())){
-                    throw new DuplicateResourceException("Email already exists");
-                }
-                user.get().setEmail(request.getEmail());
-            }
-
-            if(request.getRole() != null){
-                if(request.getRole() == Role.ADMIN){
-                    throw new UnauthorizedActionException("unauthorized action");
-                }
-                user.get().setRole(request.getRole());
-            }
-
-            userRepository.save(user.get());
-            log.info("action=update_user user_id={} username={} status=success", id,  user.get().getUsername());
-            return UserResponse.from(user.get());
-
-        }else{
-            throw new ResourceNotFoundException("User not found");
+            user.setUsername(request.getUsername().toLowerCase());
         }
+
+        if(request.getRole() != null){
+            if(request.getRole() == Role.ADMIN){
+                throw new UnauthorizedActionException("You are not allowed to perform this action");
+            }
+            user.setRole(request.getRole());
+        }
+
+        userRepository.save(user);
+        log.info("action=update_user user_id={} username={} status=success", user.getId(),  user.getUsername());
+        return UserResponse.from(user);
     }
 
     public void deleteUserById(Long id){
@@ -116,21 +126,20 @@ public class UserService {
     }
 
     public void updateUserPassword(Long id, UpdatePasswordRequest request){
-        log.debug("action=update_user_by_id id={}", id);
-        Optional<User> user = userRepository.findById(id);
-        if(user.isPresent()){
-            if(!request.getNewPassword().equals(request.getConfirmNewPassword())){
-                throw new PasswordMismatchException("Passwords don't match");
-            }
+        log.debug("action=update_user_password_by_id id={}", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-            if(!bCryptPasswordEncoder.matches(request.getOldPassword(), user.get().getPasswordHash())){
-                throw new InvalidCredentialsException("Old passwords don't match");
-            }
-            user.get().setPasswordHash(bCryptPasswordEncoder.encode(request.getNewPassword()));
-            userRepository.save(user.get());
-        }else{
-            throw new ResourceNotFoundException("User not found");
+        if(!request.getNewPassword().equals(request.getConfirmNewPassword())){
+            throw new PasswordMismatchException("Passwords don't match");
         }
+
+        if(!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())){
+            throw new InvalidCredentialsException("Old passwords don't match");
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        refreshTokenRepository.deleteByUserId(user.getId());
     }
 
 

@@ -34,5 +34,5 @@ build/
 .vscode/
 
 ### Private ####
-.env
+src/main/resources/application-env.properties
 *.log
