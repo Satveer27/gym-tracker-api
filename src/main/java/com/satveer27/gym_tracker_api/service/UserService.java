@@ -27,7 +27,6 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
     private final EmailVerificationService emailVerificationService;
-    private final VerificationTokenRepository verificationTokenRepository;
 
     public UserResponse getUserById(Long id){
         log.debug("action=get_user_by_id id={}", id);
@@ -71,7 +70,8 @@ public class UserService {
         userRepository.save(user);
         if(emailChanged){
             refreshTokenRepository.deleteByUserId(user.getId());
-            emailVerificationService.sendEmail(request.getEmail().toLowerCase(), TokenType.EMAIL_VERIFICATION);
+            String token = emailVerificationService.createVerificationToken(user, TokenType.EMAIL_VERIFICATION);
+            emailVerificationService.sendVerificationEmail(user.getEmail(), token);
         }
         log.info("action=update_user_admin user_id={} username={} status=success", id,  user.getUsername());
         return UserResponse.from(user);

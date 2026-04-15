@@ -29,9 +29,10 @@ public class AuthenticationController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse> login(
             @Valid @RequestBody UserLoginRequest userLoginRequest,
+            @CookieValue(name = "refresh_token", required = false) String oldRefreshToken,
             HttpServletResponse response) {
         log.info("action=login_request username={}", userLoginRequest.getUsername());
-        AuthTokens authTokens = authenticationService.userLogin(userLoginRequest);
+        AuthTokens authTokens = authenticationService.userLogin(userLoginRequest,oldRefreshToken);
         CookieCreatorHelper.setAuthCookies(response, authTokens);
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponse.from("Login successful"));
     }

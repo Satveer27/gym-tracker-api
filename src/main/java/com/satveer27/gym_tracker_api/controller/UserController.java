@@ -91,7 +91,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/allUsers")
+    @GetMapping("/admin/allUsers")
     @PreAuthorize("hasAnyAuthority('ADMIN')")
     public ResponseEntity<GetAllUsersResponse> getAllUsers(
             @PageableDefault(page = 0, size=30, sort="id", direction = Sort.Direction.ASC) Pageable pageable,

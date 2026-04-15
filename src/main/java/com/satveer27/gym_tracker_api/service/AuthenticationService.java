@@ -43,8 +43,10 @@ public class AuthenticationService {
     private final VerificationTokenRepository verificationTokenRepository;
 
     // Service methods
-    public AuthTokens userLogin(UserLoginRequest userLoginRequest){
+    public AuthTokens userLogin(UserLoginRequest userLoginRequest, String oldRefreshToken){
         log.info("action=user_login username={}", userLoginRequest.getUsername());
+
+
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         userLoginRequest.getUsername(),
@@ -52,6 +54,19 @@ public class AuthenticationService {
         );
 
         User user = (User) auth.getPrincipal();
+
+        if(oldRefreshToken != null && !oldRefreshToken.isBlank()){
+            try {
+                Long id = jwtService.getRefreshIdFromRefresh(oldRefreshToken);
+                if (id != null) {
+                    refreshTokenRepository.deleteById(id);
+                    log.info("action=old_session_revoked token_id={} user_id={}", id, user.getId());
+                }
+            }catch (Exception e){
+                log.warn("action=old_token_cleanup_failed message={}", e.getMessage());
+            }
+
+        }
 
         String token = jwtService.generateJwtToken(user);
         String refreshToken = createRefreshTokenForUser(user);

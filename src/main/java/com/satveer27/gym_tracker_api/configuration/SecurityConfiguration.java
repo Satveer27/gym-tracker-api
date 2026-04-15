@@ -50,7 +50,9 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/auth/resend-email-verification").permitAll()
                         .requestMatchers("/api/v1/auth/reset-password").permitAll()
                         .requestMatchers("/api/v1/auth/forget-password").permitAll()
+                        .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/favicon.ico").permitAll()
+                        .requestMatchers("/actuator/info", "/actuator/metrics/**").hasAuthority("ADMIN")
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception
                         .accessDeniedHandler(jwtAccessDeniedHandlerComp)

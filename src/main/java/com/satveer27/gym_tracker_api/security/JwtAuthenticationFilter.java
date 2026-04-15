@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -50,8 +51,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             UsernamePasswordAuthenticationToken(userId, null,
                             authorities);
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-
+                MDC.put("user_id", userId.toString());
             }
+
             filterChain.doFilter(request, response);
         } catch (ExpiredJwtException | MalformedJwtException | SignatureException ex) {
             log.warn("action=jwt_filter_invalid_token message={}", ex.getMessage());

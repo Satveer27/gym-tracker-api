@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import org.slf4j.MDC;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -16,6 +17,7 @@ public class ErrorResponseDto {
     private LocalDateTime timestamp;
     private int status;
     private String error;
+    private String requestId;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Map<String, String> fieldErrors;
@@ -26,6 +28,7 @@ public class ErrorResponseDto {
                 .status(status)
                 .error(error)
                 .message(message)
+                .requestId(MDC.get("requestId"))
                 .build();
     }
 
@@ -36,6 +39,7 @@ public class ErrorResponseDto {
                 .error(error)
                 .message(message)
                 .fieldErrors(fieldErrors)
+                .requestId(MDC.get("requestId"))
                 .build();
     }
 }

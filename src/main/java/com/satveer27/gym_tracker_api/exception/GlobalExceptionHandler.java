@@ -10,6 +10,7 @@ import org.springframework.mail.MailException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -127,14 +128,23 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ErrorResponseDto> handleDisabledException(DisabledException ex) {
+        log.warn("action=disabled_exception message={}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponseDto.of(HttpStatus.FORBIDDEN.value(), "Forbidden", "Email not verified"));
     }
 
     @ExceptionHandler(MailException.class)
     public ResponseEntity<ErrorResponseDto> handleMailException(MailException ex) {
+        log.warn("action=mail_exception message={}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponseDto.of(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Error", "Failed to send email"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponseDto> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("action=method_not_supported message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ErrorResponseDto.of(HttpStatus.METHOD_NOT_ALLOWED.value(), "Invalid method","Method not supported: " + ex.getMethod()));
     }
 
     @ExceptionHandler(Exception.class)
