@@ -46,7 +46,6 @@ public class AuthenticationService {
     public AuthTokens userLogin(UserLoginRequest userLoginRequest, String oldRefreshToken){
         log.info("action=user_login username={}", userLoginRequest.getUsername());
 
-
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         userLoginRequest.getUsername(),
@@ -183,6 +182,7 @@ public class AuthenticationService {
             }
         }
     }
+
 
     //utils
     private String createRefreshTokenForUser(User user) {

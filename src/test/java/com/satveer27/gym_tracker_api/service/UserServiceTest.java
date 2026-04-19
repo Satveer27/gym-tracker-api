@@ -3,9 +3,10 @@ package com.satveer27.gym_tracker_api.service;
 import com.satveer27.gym_tracker_api.dto.users.*;
 import com.satveer27.gym_tracker_api.entity.User;
 import com.satveer27.gym_tracker_api.enums.Role;
+import com.satveer27.gym_tracker_api.enums.TokenType;
 import com.satveer27.gym_tracker_api.exception.*;
+import com.satveer27.gym_tracker_api.repository.RefreshTokenRepository;
 import com.satveer27.gym_tracker_api.repository.UserRepository;
-import com.satveer27.gym_tracker_api.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,8 +17,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -31,160 +30,65 @@ import static org.mockito.Mockito.*;
 public class UserServiceTest {
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
     @Mock
     private PasswordEncoder bCryptPasswordEncoder;
-    @Mock
-    private AuthenticationManager authenticationManager;
-    @Mock
-    private JwtService jwtService;
 
     @InjectMocks
     private UserService userService;
 
-    @InjectMocks
-    private AuthenticationService authenticationService;
-
+    // Get user By id
     @Test
-    void register_shouldCreateUser_whenValidRequest(){
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
-
-        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(false);
-
-        when(bCryptPasswordEncoder.encode("password123")).thenReturn("hashedpassword");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User user = invocation.getArgument(0);
-            user.setId(1L);
-            return user;
-        });
-//        UserResponse response = authenticationService.register(request);
-
-//        assertNotNull(response);
-//        assertEquals("testuser", response.getUsername());
-//        assertEquals("test@email.com", response.getEmail());
-        verify(userRepository).save(any(User.class));
-        verify(bCryptPasswordEncoder).encode("password123");
-
-    }
-
-    @Test
-    void register_shouldNotCreateUser_whenUsernameExists(){
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
-        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(true);
-        assertThrows(DuplicateResourceException.class, ()->authenticationService.register(request));
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void register_shouldNotCreateUser_whenEmailExists(){
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
-        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(true);
-        assertThrows(DuplicateResourceException.class, ()->authenticationService.register(request));
-        verify(userRepository, never()).save(any());
-    }
-
-    @Test
-    void register_shouldHashPassword() {
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
-
-        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(false);
-        when(bCryptPasswordEncoder.encode("password123")).thenReturn("hashedpassword");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User user = invocation.getArgument(0);
-            user.setId(1L);
-            return user;
-        });
-
-        authenticationService.register(request);
-
-        verify(userRepository).save(argThat(user ->
-                user.getPasswordHash().equals("hashedpassword")
-        ));
-    }
-
-    @Test
-    void register_shouldNotReturnPasswordInResponse() {
-        UserRegisterRequest request = new UserRegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@email.com");
-        request.setPassword("password123");
-
-        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("test@email.com")).thenReturn(false);
-        when(bCryptPasswordEncoder.encode("password123")).thenReturn("hashedpassword");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User user = invocation.getArgument(0);
-            user.setId(1L);
-            return user;
-        });
-
-//        UserResponse response = authenticationService.register(request);
-//        assertNotNull(response.getId());
-//        assertNotNull(response.getUsername());
-//        assertNotNull(response.getEmail());
-    }
-
-    @Test
-    void findUser_shouldReturnUser_whenUserExists() {
+    void getUserById_shouldReturnUser_whenUserExists(){
         User user = new User();
         user.setId(1L);
         user.setUsername("testuser");
         user.setEmail("test@email.com");
-        user.setPasswordHash("password123");
+
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
         UserResponse result = userService.getUserById(1L);
+
         assertEquals("testuser", result.getUsername());
         assertEquals("test@email.com", result.getEmail());
         verify(userRepository).findById(1L);
-
     }
 
     @Test
-    void findUser_shouldNotReturnUser_whenUserNotFound() {
+    void getUserById_shouldThrow_whenUserNotFound(){
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, ()->userService.getUserById(1L));
     }
 
+    //Updated user by id
     @Test
-    void updateUser_shouldUpdateUser() {
+    void updateUserById_shouldUpdateUsername_whenValid(){
         UpdatedUserRequest request = new UpdatedUserRequest();
         request.setUsername("testuser1");
-
 
         User user = new User();
         user.setId(1L);
         user.setUsername("testuser");
         user.setEmail("test@email.com");
-        user.setPasswordHash("password123");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.existsByUsernameIgnoreCase("testuser1")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("test@email1.com")).thenReturn(false);
-
         when(userRepository.save(any(User.class))).thenReturn(user);
 
         UserResponse response = userService.updateUserById(1L, request);
 
         assertEquals("testuser1", response.getUsername());
-        assertEquals("test@email1.com", response.getEmail());
+        assertEquals("test@email.com", response.getEmail());
     }
 
     @Test
-    void throwException_whenRoleIsAdmin() {
+    void updateUserById_shouldThrow_whenRoleIsAdmin() {
         UpdatedUserRequest request = new UpdatedUserRequest();
         request.setRole(Role.ADMIN);
 
@@ -197,7 +101,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void throwDuplicate_whenUserExists() {
+    void updateUserById_shouldThrow_whenDuplicateUsername() {
         UpdatedUserRequest request = new UpdatedUserRequest();
         request.setUsername("testuser");
 
@@ -212,43 +116,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void throwDuplicate_whenEmailExists() {
-        UpdatedUserRequest request = new UpdatedUserRequest();
-        request.setUsername("testuser");
-
-        User user = new User();
-        user.setId(1L);
-        user.setUsername("testuser");
-        user.setEmail("testuser1@gmail.com");
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
-        when(userRepository.existsByEmailIgnoreCase("testuser@gmail.com")).thenReturn(true);
-        assertThrows(DuplicateResourceException.class,
-                () -> userService.updateUserById(1L, request));
-    }
-
-    @Test
-    void returnSameUser_whenAllFieldEmptyString() {
-        UpdatedUserRequest request = new UpdatedUserRequest();
-        request.setUsername("");
-
-        User user = new User();
-        user.setId(1L);
-        user.setUsername("testuser");
-        user.setEmail("testuser@gmail.com");
-        user.setRole(Role.USER);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userRepository.save(any(User.class))).thenReturn(user);
-
-        UserResponse response = userService.updateUserById(1L, request);
-
-        assertEquals("testuser", response.getUsername());
-        assertEquals("testuser@gmail.com", response.getEmail());
-        assertEquals(Role.USER, response.getRole());
-    }
-
-    @Test
-    void throwException_whenUserNotFound() {
+    void updateUserById_shouldThrow_whenUserNotFound() {
         UpdatedUserRequest request = new UpdatedUserRequest();
         request.setUsername("testuser");
 
@@ -259,30 +127,61 @@ public class UserServiceTest {
     }
 
     @Test
-    void returnSameUser_whenAllFieldNullString() {
+    void updateUserById_shouldNotThrowDuplicate_whenSameUsername() {
         UpdatedUserRequest request = new UpdatedUserRequest();
-        request.setUsername(null);
-        request.setRole(null);
+        request.setUsername("testuser");
 
         User user = new User();
         user.setId(1L);
         user.setUsername("testuser");
-        user.setEmail("testuser@gmail.com");
-        user.setRole(Role.USER);
+        user.setEmail("test@email.com");
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(true);
         when(userRepository.save(any(User.class))).thenReturn(user);
 
         UserResponse response = userService.updateUserById(1L, request);
 
         assertEquals("testuser", response.getUsername());
-        assertEquals("testuser@gmail.com", response.getEmail());
-        assertEquals(Role.USER, response.getRole());
     }
 
+    // Updated user by Id admin
     @Test
-    void returnUserWithChangeEmail_whenUpdateUser() {
-        UpdatedUserRequest request = new UpdatedUserRequest();
+    void updateUserByIdAdmin_shouldThrow_whenUserNotFound() {
+        UpdateUserRequestAdmin request = new UpdateUserRequestAdmin();
+        request.setUsername("testuser");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> userService.updateUserByIdAdmin(1L, request));
+    }
+
+
+    @Test
+    void updateUserByIdAdmin_shouldThrow_whenDuplicateEmail() {
+        UpdateUserRequestAdmin request = new UpdateUserRequestAdmin();
+        request.setUsername("testuser");
+        request.setEmail("testuser@gmail.com");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEmail("testuser1@gmail.com");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByUsernameIgnoreCase("testuser")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("testuser@gmail.com")).thenReturn(true);
+        assertThrows(DuplicateResourceException.class,
+                () -> userService.updateUserByIdAdmin(1L, request));
+    }
+
+
+
+    @Test
+    void updateUserByIdAdmin_shouldUpdateEmailAndRole() {
+        UpdateUserRequestAdmin request = new UpdateUserRequestAdmin();
+        request.setEmail("testuser1@gmail.com");
+        request.setRole(Role.ADMIN);
 
         User user = new User();
         user.setId(1L);
@@ -294,15 +193,61 @@ public class UserServiceTest {
         when(userRepository.existsByEmailIgnoreCase("testuser1@gmail.com")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenReturn(user);
 
-        UserResponse response = userService.updateUserById(1L, request);
+        UserResponse response = userService.updateUserByIdAdmin(1L, request);
 
         assertEquals("testuser", response.getUsername());
         assertEquals("testuser1@gmail.com", response.getEmail());
-        assertEquals(Role.USER, response.getRole());
+        assertEquals(Role.ADMIN, response.getRole());
+
     }
 
     @Test
-    void updatePassword_success() {
+    void updateUserByIdAdmin_shouldResetVerificationAndDeleteTokens_whenEmailChanged() {
+        UpdateUserRequestAdmin request = new UpdateUserRequestAdmin();
+        request.setEmail("testuser1@gmail.com");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEmail("testuser@gmail.com");
+        user.setEmailVerified(true);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmailIgnoreCase("testuser1@gmail.com")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenReturn(user);
+
+        userService.updateUserByIdAdmin(1L, request);
+
+        assertFalse(user.isEmailVerified());
+        verify(refreshTokenRepository).deleteByUserId(1L);
+        verify(emailVerificationService).createVerificationToken(any(User.class), eq(TokenType.EMAIL_VERIFICATION));
+        verify(emailVerificationService).sendVerificationEmail(eq("testuser1@gmail.com"), any());
+    }
+
+    @Test
+    void updateUserByIdAdmin_shouldNotSendEmail_whenEmailUnchanged() {
+        UpdateUserRequestAdmin request = new UpdateUserRequestAdmin();
+        request.setEmail("testuser@gmail.com");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("testuser");
+        user.setEmail("testuser@gmail.com");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenReturn(user);
+
+        userService.updateUserByIdAdmin(1L, request);
+
+        verify(refreshTokenRepository, never()).deleteByUserId(any());
+        verify(emailVerificationService, never()).createVerificationToken(any(), eq(TokenType.EMAIL_VERIFICATION));
+        verify(emailVerificationService, never()).sendVerificationEmail(any(), any());
+    }
+
+
+    // updated password
+    @Test
+    void updatePassword_shouldSucceed_whenValid() {
         User user = new User();
         user.setId(1L);
         when(bCryptPasswordEncoder.encode("oldPassword")).thenReturn("hashedOldPassword");
@@ -321,10 +266,11 @@ public class UserServiceTest {
         userService.updateUserPassword(1L, request);
 
         verify(userRepository).save(any(User.class));
+        verify(refreshTokenRepository).deleteByUserId(1L);
     }
 
     @Test
-    void updatePassword_throwsWhenPasswordsMismatch() {
+    void updatePassword_shouldThrow_whenPasswordsMismatch() {
         User user = new User();
         user.setId(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -339,7 +285,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void updatePassword_throwsWhenOldPasswordWrong() {
+    void updatePassword_shouldThrow_whenOldPasswordWrong() {
         User user = new User();
         user.setId(1L);
         user.setPasswordHash("encodedOldPassword");
@@ -357,7 +303,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void updatePassword_throwsWhenUserNotFound() {
+    void updatePassword_shouldThrow_whenUserNotFound() {
         UpdatePasswordRequest request = new UpdatePasswordRequest();
         request.setOldPassword("oldPassword");
         request.setNewPassword("newPassword");
@@ -370,7 +316,31 @@ public class UserServiceTest {
     }
 
     @Test
-    void deleteUser_success() {
+    void updatePassword_shouldHashNewPassword() {
+        User user = new User();
+        user.setId(1L);
+        user.setPasswordHash("encodedOldPassword");
+
+        UpdatePasswordRequest request = new UpdatePasswordRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword");
+        request.setConfirmNewPassword("newPassword");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(bCryptPasswordEncoder.matches("oldPassword", "encodedOldPassword")).thenReturn(true);
+        when(bCryptPasswordEncoder.encode("newPassword")).thenReturn("encodedNewPassword");
+        when(userRepository.save(any(User.class))).thenReturn(user);
+
+        userService.updateUserPassword(1L, request);
+
+        verify(userRepository).save(argThat(u ->
+                u.getPasswordHash().equals("encodedNewPassword")
+        ));
+    }
+
+    // delete users
+    @Test
+    void deleteUser_shouldSucceed_whenUserExists() {
         when(userRepository.existsById(1L)).thenReturn(true);
 
         userService.deleteUserById(1L);
@@ -379,15 +349,17 @@ public class UserServiceTest {
     }
 
     @Test
-    void deleteUser_throwsWhenUserNotFound() {
+    void deleteUser_shouldThrow_whenUserNotFound() {
         when(userRepository.existsById(1L)).thenReturn(false);
 
         assertThrows(ResourceNotFoundException.class,
                 () -> userService.deleteUserById(1L));
     }
 
+
+    // get all users
     @Test
-    void getAllUsers_returnsPagedResults() {
+    void getAllUsers_shouldReturnPagedResults() {
         User user1 = new User();
         user1.setId(1L);
         user1.setUsername("testuser1");
@@ -416,7 +388,7 @@ public class UserServiceTest {
     }
 
     @Test
-    void getAllUsers_returnsEmptyPage() {
+    void getAllUsers_shouldReturnEmptyPage() {
         Page<User> page = new PageImpl<>(List.of(), PageRequest.of(0, 30), 0);
 
         when(userRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
