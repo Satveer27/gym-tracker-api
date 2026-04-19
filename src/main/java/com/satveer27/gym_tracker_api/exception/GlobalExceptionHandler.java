@@ -2,10 +2,17 @@ package com.satveer27.gym_tracker_api.exception;
 
 import com.satveer27.gym_tracker_api.dto.errors.ErrorResponseDto;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mail.MailException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -94,6 +101,50 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 ErrorResponseDto.of(HttpStatus.UNAUTHORIZED.value(), "Unauthorized", ex.getMessage())
         );
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponseDto> handleAuthenticationException(AuthenticationException ex) {
+        log.warn("action=authentication_exception message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ErrorResponseDto.of(HttpStatus.UNAUTHORIZED.value(), "Unauthorized", "Invalid username or password")
+        );
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponseDto> handleAuthorizationDenied(AuthorizationDeniedException ex) {
+        log.warn("action=access_denied message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponseDto.of(HttpStatus.FORBIDDEN.value(), "Forbidden", "You don't have permission to access this resource"));
+    }
+
+    @ExceptionHandler(MissingRequestCookieException.class)
+    public ResponseEntity<ErrorResponseDto> handleMissingCookieException(MissingRequestCookieException ex) {
+        log.warn("action=missing_cookie message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ErrorResponseDto.of(HttpStatus.UNAUTHORIZED.value(), "Unauthorized", "Missing cookie")
+        );
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponseDto> handleDisabledException(DisabledException ex) {
+        log.warn("action=disabled_exception message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponseDto.of(HttpStatus.FORBIDDEN.value(), "Forbidden", "Email not verified"));
+    }
+
+    @ExceptionHandler(MailException.class)
+    public ResponseEntity<ErrorResponseDto> handleMailException(MailException ex) {
+        log.warn("action=mail_exception message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponseDto.of(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Internal Error", "Failed to send email"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponseDto> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("action=method_not_supported message={}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ErrorResponseDto.of(HttpStatus.METHOD_NOT_ALLOWED.value(), "Invalid method","Method not supported: " + ex.getMethod()));
     }
 
     @ExceptionHandler(Exception.class)
